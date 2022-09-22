@@ -23,6 +23,7 @@ import sys
 import copy
 from collections import Sequence, defaultdict
 from datacollector import DataCollector, Result
+import imutils
 
 # add deploy path of PadleDetection to sys.path
 parent_path = os.path.abspath(os.path.join(__file__, *(['..'] * 2)))
@@ -570,7 +571,14 @@ class PipePredictor(object):
         # mot
         # mot -> attr
         # mot -> pose -> action
-        capture = cv2.VideoCapture(video_file)
+        left = "../data/12.mp4"
+        middle = "../data/7.mp4"
+        right = "../data/2.mp4"
+        
+        capture = cv2.VideoCapture(middle)
+        capture_left = cv2.VideoCapture(left)
+        capture_right = cv2.VideoCapture(right)
+
         video_out_name = 'output.mp4' if self.file_name is None else self.file_name
         if "rtsp" in video_file:
             video_out_name = video_out_name + "_t" + str(thread_idx).zfill(
@@ -633,13 +641,43 @@ class PipePredictor(object):
         }  # store info for vehicle parking in region       
         illegal_parking_dict = None
 
+        LMH = np.float32([
+            [ 7.95696360e-01, -5.49462681e-01,  3.25287267e+02],
+            [ 2.18171043e-01,  9.14469109e-01, -1.35934487e+02],
+            [-3.65790535e-04, -1.52724151e-04,  1.00000000e+00]
+            ])
+        MRH = np.float32([
+                [ 1.10573002e+00,  8.72653005e-01, -1.14375823e+02-550],
+                [-6.06658169e-01,  1.16526316e+00,  7.54486382e+01],
+                [ 7.52696617e-04, -8.85549667e-05,  1.00000000e+00]
+                ])
+
         while (1):
             if frame_id % 10 == 0:
                 print('Thread: {}; frame id: {}'.format(thread_idx, frame_id))
 
             ret, frame = capture.read()
-            if not ret:
+            ret_left, frame_left = capture_left.read()
+            ret_right, frame_right = capture_right.read()
+            if not ret and not ret_left and not ret_right:
                 break
+            l_raw = imutils.rotate_bound(frame_left, -90)
+            m_raw = imutils.rotate_bound(frame, -90)
+            r_raw = imutils.rotate_bound(frame_right, 90)
+            l_raw = cv2.resize(l_raw, (453,806))
+            m_raw = cv2.resize(m_raw, (453,806))
+            r_raw = cv2.resize(r_raw, (453,806))
+            l_res = cv2.warpPerspective(
+                l_raw, LMH, (l_raw.shape[1] + m_raw.shape[1] + r_raw.shape[1], l_raw.shape[0])
+                )
+            
+            
+            r_res = cv2.warpPerspective(
+                r_raw, MRH, (r_raw.shape[1], r_raw.shape[0])
+                )
+            l_res[0 : l_raw.shape[0],  l_raw.shape[1] : l_raw.shape[1] + l_raw.shape[1] ] = m_raw
+            l_res[0 : r_raw.shape[0], l_raw.shape[1] + m_raw.shape[1]:] = r_res
+            frame = l_res
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             if frame_id > self.warmup_frame:
                 self.pipe_timer.total_time.start()
@@ -710,10 +748,10 @@ class PipePredictor(object):
                                                   entrance, records,
                                                   center_traj)  # visualize
                         writer.write(im)
-                        if self.file_name is None:  # use camera_id
-                            cv2.imshow('Paddle-Pipeline', im)
-                            if cv2.waitKey(1) & 0xFF == ord('q'):
-                                break
+                        # if self.file_name is None:  # use camera_id
+                        cv2.imshow('Paddle-Pipeline', im)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
                     continue
 
                 self.pipeline_res.update(mot_res, 'mot')
@@ -883,10 +921,10 @@ class PipePredictor(object):
                                           self.illegal_parking_time != -1,
                                           illegal_parking_dict)  # visualize
                 writer.write(im)
-                if self.file_name is None:  # use camera_id
-                    cv2.imshow('Paddle-Pipeline', im)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
+                # if self.file_name is None:  # use camera_id
+                cv2.imshow('Paddle-Pipeline', im)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
         writer.release()
         print('save result to {}'.format(out_path))
