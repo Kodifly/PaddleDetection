@@ -710,10 +710,11 @@ class PipePredictor(object):
                                                   entrance, records,
                                                   center_traj)  # visualize
                         writer.write(im)
-                        if self.file_name is None:  # use camera_id
-                            cv2.imshow('Paddle-Pipeline', im)
-                            if cv2.waitKey(1) & 0xFF == ord('q'):
-                                break
+                        # if self.file_name is None:  # use camera_id
+                        resized = cv2.resize(im, (1080, 720))
+                        cv2.imshow('Paddle-Pipeline', resized)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
                     continue
 
                 self.pipeline_res.update(mot_res, 'mot')
@@ -883,10 +884,11 @@ class PipePredictor(object):
                                           self.illegal_parking_time != -1,
                                           illegal_parking_dict)  # visualize
                 writer.write(im)
-                if self.file_name is None:  # use camera_id
-                    cv2.imshow('Paddle-Pipeline', im)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
+                # if self.file_name is None:  # use camera_id
+                resized = cv2.resize(im, (1080, 720))
+                cv2.imshow('Paddle-Pipeline', resized)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
         writer.release()
         print('save result to {}'.format(out_path))

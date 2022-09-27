@@ -17,4 +17,4 @@ VEHICLE_ATTR:
   batch_size: 8
   color_threshold: 0.5
   type_threshold: 0.5
-  enable: True
+  enable: False
